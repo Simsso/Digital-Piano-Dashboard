@@ -1,0 +1,23 @@
+{
+  "name": "midi-relay",
+  "version": "0.1.0",
+  "description": "Reads an incoming MIDI signal from the host and forwards it using websockets.",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Simsso/Digital-Piano-Dashboard.git"
+  },
+  "author": "Timo Denk",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Simsso/Digital-Piano-Dashboard/issues"
+  },
+  "homepage": "https://github.com/Simsso/Digital-Piano-Dashboard#readme",
+  "dependencies": {
+    "dotenv": "^5.0.1",
+    "midi": "^0.9.5"
+  }
+}
