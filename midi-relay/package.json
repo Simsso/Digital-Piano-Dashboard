@@ -18,6 +18,8 @@
   "homepage": "https://github.com/Simsso/Digital-Piano-Dashboard#readme",
   "dependencies": {
     "dotenv": "^5.0.1",
-    "midi": "^0.9.5"
+    "express": "^4.16.3",
+    "midi": "^0.9.5",
+    "socket.io": "^2.1.1"
   }
 }
