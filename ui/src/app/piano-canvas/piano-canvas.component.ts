@@ -1,3 +1,6 @@
+import { TimeSpan } from './../util/time-span';
+import { PianoKey } from './../piano/piano-key';
+import { KeyPushEvent } from './../piano/key-push-event';
 import { MidiSocketService } from './../midi-socket.service';
 import { Component, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 
@@ -12,20 +15,30 @@ export class PianoCanvasComponent implements OnInit, AfterViewInit {
   @ViewChild('pianoStateCanvas') canvasRef: ElementRef;
   ctx: CanvasRenderingContext2D;
 
-  width: number;
-  height: number;
+  private readonly width: number = 880;
+  private readonly height: number = 100;
 
-  readonly keyCount: number = 88;
-  readonly lowestKey: number = 21;
+  private readonly keyCount: number = 88;
+  private readonly lowestKey: number = 21;
 
-  keyPushed: boolean[] = [];
+
+  private readonly keyWidth = this.width / this.keyCount;
+
+  private readonly keys: PianoKey[] = [];
+
+  private pianoTime = 0;
+  private realTime = 0;
+
+  private renderWindowSpan: TimeSpan = new TimeSpan(5);
 
   constructor(private midiInput: MidiSocketService) {
     this.midiInput.register(this.processNewMIDIData.bind(this));
+    for (let i = 0; i < this.keyCount; i++) {
+      this.keys.push(new PianoKey(i));
+    }
   }
 
   ngOnInit() {
-
   }
 
   ngAfterViewInit() {
@@ -39,32 +52,43 @@ export class PianoCanvasComponent implements OnInit, AfterViewInit {
   }
 
   drawState() {
-    this.updateDimensions();
-
-    const keyWidth = this.width / this.keyCount;
-    for (let i = this.lowestKey, j = 0; i < this.lowestKey + this.keyCount; i++, j++) {
-      const pressed: boolean = this.keyPushed[i];
-      this.ctx.fillStyle = pressed ? '#DD0031' : '#FFFFFF';
-      this.ctx.fillRect(j * keyWidth, 0, keyWidth, this.height);
-    }
+    const currentPianoTime = (Date.now() / 1000 - this.realTime) + this.pianoTime;
+    const lowestPianoTime = currentPianoTime - this.renderWindowSpan.seconds;
+    this.keys.forEach(k => {
+      this.clearKeyBar(k.getId());
+      k.getRecent(this.renderWindowSpan, currentPianoTime)
+        .forEach(e => this.drawKeyPressedBar(k.getId(), e.getNormalized(lowestPianoTime, currentPianoTime), currentPianoTime));
+    });
 
     requestAnimationFrame(this.drawState.bind(this));
   }
 
-  processNewMIDIData(data) {
-    console.log(data);
-    if (data.status === 144) { // push down
-      this.keyPushed[data.data1] = true;
-    }
-    if (data.status === 128) { // released
-      this.keyPushed[data.data1] = false;
-    }
+  clearKeyBar(keyIndex: number) {
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.fillRect(keyIndex * this.keyWidth, 0, this.keyWidth, this.height);
   }
 
-  updateDimensions() {
-    this.width = this.ctx.canvas.clientWidth;
-    this.height = this.ctx.canvas.clientHeight;
+  drawKeyPressedBar(keyIndex: number, normalizedEvent: KeyPushEvent, timeNow: number) {
+    this.ctx.fillStyle = '#DD0031';
+    this.ctx.fillRect(
+      keyIndex * this.keyWidth,
+      normalizedEvent.getStart() * this.height,
+      this.keyWidth,
+      normalizedEvent.getDuration(timeNow) * this.height);
+  }
 
+  processNewMIDIData(data) {
+    // update time reference
+    this.pianoTime = data.time;
+    this.realTime = Date.now() / 1000;
+
+    const keyIndex = data.data1 - this.lowestKey;
+    if (data.status === 144) { // push down
+      this.keys[keyIndex].push(data.time);
+    }
+    if (data.status === 128) { // released
+      this.keys[keyIndex].release(data.time);
+    }
   }
 
 }
