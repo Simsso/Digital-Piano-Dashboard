@@ -4,6 +4,7 @@
   "description": "Reads an incoming MIDI signal from the host and forwards it using websockets.",
   "main": "src/index.js",
   "scripts": {
+    "start": "node src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
