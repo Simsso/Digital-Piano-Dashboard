@@ -1,5 +1,4 @@
 import { KeyPushEvent } from './key-push-event';
-import { TimeSpan } from '../util/time-span';
 
 export class PianoKey {
 
@@ -28,8 +27,8 @@ export class PianoKey {
     return this.history.length > 0 && this.history[0].isOngoing();
   }
 
-  public getRecent(timeSpan: TimeSpan, now: number) {
-    const furthestBack = now - timeSpan.seconds;
+  public getRecent(timeSpan: number, now: number) {
+    const furthestBack = now - timeSpan;
     return this.history.filter(e => e.activeAfter(furthestBack));
   }
 

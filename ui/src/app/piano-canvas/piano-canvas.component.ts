@@ -1,4 +1,3 @@
-import { TimeSpan } from './../util/time-span';
 import { PianoKey } from './../piano/piano-key';
 import { KeyPushEvent } from './../piano/key-push-event';
 import { MidiSocketService } from './../midi-socket.service';
@@ -16,7 +15,7 @@ export class PianoCanvasComponent implements OnInit, AfterViewInit {
   ctx: CanvasRenderingContext2D;
 
   private readonly width: number = 880;
-  private readonly height: number = 100;
+  private readonly height: number = 1000;
 
   private readonly keyCount: number = 88;
   private readonly lowestKey: number = 21;
@@ -29,7 +28,7 @@ export class PianoCanvasComponent implements OnInit, AfterViewInit {
   private pianoTime = 0;
   private realTime = 0;
 
-  private renderWindowSpan: TimeSpan = new TimeSpan(5);
+  private renderWindowSpan = 5;
 
   constructor(private midiInput: MidiSocketService) {
     this.midiInput.register(this.processNewMIDIData.bind(this));
@@ -53,7 +52,7 @@ export class PianoCanvasComponent implements OnInit, AfterViewInit {
 
   drawState() {
     const currentPianoTime = (Date.now() / 1000 - this.realTime) + this.pianoTime;
-    const lowestPianoTime = currentPianoTime - this.renderWindowSpan.seconds;
+    const lowestPianoTime = currentPianoTime - this.renderWindowSpan;
     this.keys.forEach(k => {
       this.clearKeyBar(k.getId());
       k.getRecent(this.renderWindowSpan, currentPianoTime)
@@ -72,9 +71,9 @@ export class PianoCanvasComponent implements OnInit, AfterViewInit {
     this.ctx.fillStyle = '#DD0031';
     this.ctx.fillRect(
       keyIndex * this.keyWidth,
-      normalizedEvent.getStart() * this.height,
+      Math.round(normalizedEvent.getStart() * this.height),
       this.keyWidth,
-      normalizedEvent.getDuration(timeNow) * this.height);
+      Math.round(normalizedEvent.getDuration(timeNow) * this.height));
   }
 
   processNewMIDIData(data) {
