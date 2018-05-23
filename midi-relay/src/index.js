@@ -5,7 +5,7 @@ const http = require('http').Server(app);
 const SocketManager = require('./socket-manager');
 const sockets = new SocketManager(http);
 const MIDIAdapter = require('./midi-adapter');
-const midi = new MIDIAdapter().registerCallback(forwardMIDIData).start();
+const midi = new MIDIAdapter(forwardMIDIData);
 
 app.get('/status', (req, res) => {
     res.status(200).send({ status: 'OK' });
