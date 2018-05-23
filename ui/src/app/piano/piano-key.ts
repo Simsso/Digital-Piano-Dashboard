@@ -4,8 +4,10 @@ export class PianoKey {
 
   private static maxHistoryCount = 50;
   private readonly history: KeyPushEvent[] = [];
+  public readonly black: boolean;
 
   constructor(private readonly id: number) {
+    this.black = [1, 3, 6, 8, 10].includes((id + 9) % 12);
   }
 
   public push(time: number): void {

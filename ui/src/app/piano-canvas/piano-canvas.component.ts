@@ -11,17 +11,22 @@ import { Component, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angula
 })
 export class PianoCanvasComponent implements OnInit, AfterViewInit {
 
+  static readonly keyCount: number = 88;
+  static readonly whiteKeyCount: number = 52;
+  static readonly blackKeyCount: number = PianoCanvasComponent.keyCount - PianoCanvasComponent.whiteKeyCount;
+
   @ViewChild('pianoStateCanvas') canvasRef: ElementRef;
   ctx: CanvasRenderingContext2D;
 
   private readonly width: number = 880;
   private readonly height: number = 1000;
+  private avgKeyWidth: number;
+  private blackKeyWidth: number;
+  private whiteKeyWidth: number;
 
-  private readonly keyCount: number = 88;
+  readonly pianoHeight: number = 200;
+  readonly keyHistoryHeight: number = this.height - this.pianoHeight;
   private readonly lowestKey: number = 21;
-
-
-  private readonly keyWidth = this.width / this.keyCount;
 
   private readonly keys: PianoKey[] = [];
 
@@ -32,7 +37,7 @@ export class PianoCanvasComponent implements OnInit, AfterViewInit {
 
   constructor(private midiInput: MidiSocketService) {
     this.midiInput.register(this.processNewMIDIData.bind(this));
-    for (let i = 0; i < this.keyCount; i++) {
+    for (let i = 0; i < PianoCanvasComponent.keyCount; i++) {
       this.keys.push(new PianoKey(i));
     }
   }
@@ -47,33 +52,67 @@ export class PianoCanvasComponent implements OnInit, AfterViewInit {
   }
 
   drawPianoKeys() {
-    // TODO
+    this.avgKeyWidth = this.width / PianoCanvasComponent.keyCount;
+    this.whiteKeyWidth = this.width / PianoCanvasComponent.whiteKeyCount;
+    this.blackKeyWidth = this.whiteKeyWidth / 2;
+
+    // draw white keys first, because the black keys overlap them
+    this.keys.filter(k => !k.black).forEach(this.drawKey.bind(this));
+    this.keys.filter(k => k.black).forEach(this.drawKey.bind(this));
+  }
+
+  drawKey(key: PianoKey, nthKeyOfColor: number) {
+    let xPosition: number;
+    let width: number;
+    let height: number;
+    let color: string;
+
+    if (key.black) {
+      width = this.blackKeyWidth;
+      xPosition = key.getId() / PianoCanvasComponent.keyCount * this.width + width / 2;
+      height = this.pianoHeight / 3 * 2;
+      color = '#222';
+    } else {
+      width = this.whiteKeyWidth;
+      xPosition = nthKeyOfColor / PianoCanvasComponent.whiteKeyCount * this.width;
+      height = this.pianoHeight;
+      color = '#EEE';
+    }
+
+    if (key.isPushed()) {
+      color = '#22F';
+    }
+
+
+    this.ctx.fillStyle = color;
+    this.ctx.fillRect(xPosition, this.keyHistoryHeight, width, height);
   }
 
   drawState() {
+    this.drawPianoKeys();
     const currentPianoTime = (Date.now() / 1000 - this.realTime) + this.pianoTime;
     const lowestPianoTime = currentPianoTime - this.renderWindowSpan;
     this.keys.forEach(k => {
-      this.clearKeyBar(k.getId());
+      this.clearKeyBar(k);
       k.getRecent(this.renderWindowSpan, currentPianoTime)
-        .forEach(e => this.drawKeyPressedBar(k.getId(), e.getNormalized(lowestPianoTime, currentPianoTime), currentPianoTime));
+        .forEach(e => this.drawKeyPressedBar(k, e.getNormalized(lowestPianoTime, currentPianoTime), currentPianoTime));
     });
 
     requestAnimationFrame(this.drawState.bind(this));
   }
 
-  clearKeyBar(keyIndex: number) {
+  clearKeyBar(key: PianoKey) {
     this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.fillRect(keyIndex * this.keyWidth, 0, this.keyWidth, this.height);
+    this.ctx.fillRect(key.getId() * this.avgKeyWidth, 0, this.avgKeyWidth, this.keyHistoryHeight);
   }
 
-  drawKeyPressedBar(keyIndex: number, normalizedEvent: KeyPushEvent, timeNow: number) {
+  drawKeyPressedBar(key: PianoKey, normalizedEvent: KeyPushEvent, timeNow: number) {
     this.ctx.fillStyle = '#DD0031';
-    this.ctx.fillRect(
-      keyIndex * this.keyWidth,
-      Math.round(normalizedEvent.getStart() * this.height),
-      this.keyWidth,
-      Math.round(normalizedEvent.getDuration(timeNow) * this.height));
+    const x = key.getId() * this.avgKeyWidth;
+    const y = Math.min(Math.round(normalizedEvent.getStart() * this.keyHistoryHeight), this.keyHistoryHeight);
+    const width = this.avgKeyWidth;
+    const height = Math.round(normalizedEvent.getDuration(timeNow) * this.keyHistoryHeight);
+    this.ctx.fillRect(x, y, width, height);
   }
 
   processNewMIDIData(data) {
