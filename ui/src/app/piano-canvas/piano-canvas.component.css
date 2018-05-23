@@ -1,5 +1,10 @@
 #pianoStateCanvas {
+  position: relative;
   width: 100%;
-  height: 500px;
   border: 1px solid lightgray;
+}
+
+#pianoCanvasWrapper {
+  width: 100%;
+  box-sizing: border-box;
 }

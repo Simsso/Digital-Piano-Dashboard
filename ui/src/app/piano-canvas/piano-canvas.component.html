@@ -1,3 +1,5 @@
 <h2>Current Piano State</h2>
-<canvas id="pianoStateCanvas" #pianoStateCanvas [width]="width" [height]="height"></canvas>
 Render window time-span [s]: <input type="number" (keyup)="setRenderWindowSpan($event)" />
+<div id="pianoCanvasWrapper">
+  <canvas id="pianoStateCanvas" #pianoStateCanvas [width]="width" [height]="height"></canvas>
+</div>
