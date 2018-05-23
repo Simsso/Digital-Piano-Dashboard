@@ -18,28 +18,45 @@ export class PianoCanvasComponent implements OnInit, AfterViewInit {
   @ViewChild('pianoStateCanvas') canvasRef: ElementRef;
   ctx: CanvasRenderingContext2D;
 
-  private readonly width: number = 880;
+  private readonly width: number = 1760;
   private readonly height: number = 1000;
-  private avgKeyWidth: number;
-  private blackKeyWidth: number;
-  private whiteKeyWidth: number;
+  private readonly whiteKeyWidth: number = this.width / PianoCanvasComponent.whiteKeyCount;
+  private readonly blackKeyWidth: number = this.whiteKeyWidth / 2;
 
   readonly pianoHeight: number = 200;
   readonly keyHistoryHeight: number = this.height - this.pianoHeight;
   private readonly lowestKey: number = 21;
 
   private readonly keys: PianoKey[] = [];
+  private readonly keysBW: PianoKey[] = [];
 
   private pianoTime = 0;
   private realTime = 0;
 
   private renderWindowSpan = 5;
 
+  private keyXPositions: number[] = [];
+
   constructor(private midiInput: MidiSocketService) {
     this.midiInput.register(this.processNewMIDIData.bind(this));
     for (let i = 0; i < PianoCanvasComponent.keyCount; i++) {
       this.keys.push(new PianoKey(i));
     }
+    this.keysBW = this.keys.slice(0).sort((a, b) => {
+      if (a.black !== b.black) {
+        if (a.black) { return 1; }
+        return -1;
+      }
+      return a.getId() - b.getId();
+    });
+
+    this.keysBW.forEach((k, i) => {
+      if (k.black) {
+        this.keyXPositions[k.getId()] = (k.getId() + .5) / (PianoCanvasComponent.keyCount + 1) * this.width;
+      } else {
+        this.keyXPositions[k.getId()] = i / PianoCanvasComponent.whiteKeyCount * this.width;
+      }
+    });
   }
 
   ngOnInit() {
@@ -52,50 +69,41 @@ export class PianoCanvasComponent implements OnInit, AfterViewInit {
   }
 
   drawPianoKeys() {
-    this.avgKeyWidth = this.width / PianoCanvasComponent.keyCount;
-    this.whiteKeyWidth = this.width / PianoCanvasComponent.whiteKeyCount;
-    this.blackKeyWidth = this.whiteKeyWidth / 2;
-
     // draw white keys first, because the black keys overlap them
-    this.keys.filter(k => !k.black).forEach(this.drawKey.bind(this));
-    this.keys.filter(k => k.black).forEach(this.drawKey.bind(this));
+    this.keysBW.forEach(this.drawKey.bind(this));
   }
 
   drawKey(key: PianoKey, nthKeyOfColor: number) {
-    let xPosition: number;
-    let width: number;
-    let height: number;
-    let color: string;
-
-    if (key.black) {
-      width = this.blackKeyWidth;
-      xPosition = key.getId() / PianoCanvasComponent.keyCount * this.width + width / 2;
-      height = this.pianoHeight / 3 * 2;
-      color = '#222';
-    } else {
-      width = this.whiteKeyWidth;
-      xPosition = nthKeyOfColor / PianoCanvasComponent.whiteKeyCount * this.width;
-      height = this.pianoHeight;
-      color = '#EEE';
-    }
+    const xPosition: number = this.keyXPositions[key.getId()];
+    const width: number = key.black ? this.blackKeyWidth : this.whiteKeyWidth;
+    const height: number = key.black ? this.pianoHeight / 3 * 2 : this.pianoHeight;
+    let color: string = key.black ? '#1B1B1B' : '#F3F3F3';
 
     if (key.isPushed()) {
-      color = '#22F';
+      color = '#CC0031';
     }
-
 
     this.ctx.fillStyle = color;
     this.ctx.fillRect(xPosition, this.keyHistoryHeight, width, height);
+
+    // draw key separators
+    if (!key.black && nthKeyOfColor > 0 && !key.isPushed()) {
+      this.ctx.strokeStyle = '#AAA';
+      this.ctx.beginPath();
+      this.ctx.moveTo(xPosition, this.keyHistoryHeight);
+      this.ctx.lineTo(xPosition, this.height);
+      this.ctx.stroke();
+    }
   }
 
   drawState() {
     this.drawPianoKeys();
     const currentPianoTime = (Date.now() / 1000 - this.realTime) + this.pianoTime;
     const lowestPianoTime = currentPianoTime - this.renderWindowSpan;
-    this.keys.forEach(k => {
+    this.keysBW.forEach(k => {
       this.clearKeyBar(k);
       k.getRecent(this.renderWindowSpan, currentPianoTime)
-        .forEach(e => this.drawKeyPressedBar(k, e.getNormalized(lowestPianoTime, currentPianoTime), currentPianoTime));
+        .forEach(e => this.drawKeyPressedBar(k, e.getNormalized(lowestPianoTime, currentPianoTime)));
     });
 
     requestAnimationFrame(this.drawState.bind(this));
@@ -103,15 +111,15 @@ export class PianoCanvasComponent implements OnInit, AfterViewInit {
 
   clearKeyBar(key: PianoKey) {
     this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.fillRect(key.getId() * this.avgKeyWidth, 0, this.avgKeyWidth, this.keyHistoryHeight);
+    this.ctx.fillRect(this.keyXPositions[key.getId()], 0, key.black ? this.blackKeyWidth : this.whiteKeyWidth, this.keyHistoryHeight);
   }
 
-  drawKeyPressedBar(key: PianoKey, normalizedEvent: KeyPushEvent, timeNow: number) {
-    this.ctx.fillStyle = '#DD0031';
-    const x = key.getId() * this.avgKeyWidth;
+  drawKeyPressedBar(key: PianoKey, normalizedEvent: KeyPushEvent) {
+    this.ctx.fillStyle = '#CC0031';
+    const x = this.keyXPositions[key.getId()];
     const y = Math.min(Math.round(normalizedEvent.getStart() * this.keyHistoryHeight), this.keyHistoryHeight);
-    const width = this.avgKeyWidth;
-    const height = Math.round(normalizedEvent.getDuration(timeNow) * this.keyHistoryHeight);
+    const width = key.black ? this.blackKeyWidth : this.whiteKeyWidth;
+    const height = Math.round(normalizedEvent.getDuration(1) * this.keyHistoryHeight);
     this.ctx.fillRect(x, y, width, height);
   }
 
