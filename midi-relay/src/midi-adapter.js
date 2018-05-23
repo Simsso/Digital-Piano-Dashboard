@@ -1,31 +1,57 @@
 const midi = require('midi');
 
 class MIDIAdapter {
-    constructor() {
-        this.input = new midi.input();
+    constructor(callback) {
+        this.callback = callback;
+        this.input = null;
         this.midiPort = parseInt(process.env.MIDI_PORT || '0', 10);
-        this.input.ignoreTypes(false, false, false);
+        this.connect();
+        this.lastPortCount = 0;
     }
 
-    start() {
+    connect() {
+        this.input = new midi.input();
+        this.input.on('message', this.callback);
+        this.input.ignoreTypes(false, false, false);
         try {
             this.input.openPort(this.midiPort);
         } 
         catch (e) {
-            setTimeout(this.start.bind(this), 1000);
-            return this;
+            console.log('failed to connect, retrying...')
+            this.close();
+            setTimeout(this.connect.bind(this), 1000);
+            return;
         }
         console.log(`connected to MIDI port ${this.midiPort}`);
-        return this;
+        this.lastPortCount = this.portCount();
+        setTimeout(this.checkConnection.bind(this), 1000);
     }
 
-    registerCallback(messageCallback) {
-        this.input.on('message', messageCallback);
-        return this;
+    checkConnection() {
+        if (this.portCount() !== this.lastPortCount) {
+            this.lastPortCount = this.portCount;
+            this.connect();
+        }
+        else {
+            setTimeout(this.checkConnection.bind(this), 1000);
+        }
+    }
+
+    portCount() {
+        if (this.input === null) {
+            return -1;
+        }
+        return this.input.getPortCount();
     }
 
     close() {
-        this.input.closePort();
+        try {
+            this.input.closePort();
+        }
+        catch (e) {
+            console.log('MIDI port could not be closed')
+            console.log(e);
+        }
         return this;
     }
 }
