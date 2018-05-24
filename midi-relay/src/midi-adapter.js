@@ -6,7 +6,6 @@ class MIDIAdapter {
         this.input = null;
         this.midiPort = parseInt(process.env.MIDI_PORT || '0', 10);
         this.connect();
-        this.lastPortCount = 0;
     }
 
     connect() {
